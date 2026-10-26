@@ -10,4 +10,5 @@
 
 - Lern-App „Sandkorn-Rechner“ (Vom Bit zum Befehl): https://claude.ai/artifact/TZBwTMCjzz3GKSHAvPzB4q
 - Quelldateien liegen im Scratchpad der jeweiligen Sitzung unter `app/` (lernapp.html, cpu.js, app.js aus `parts/`).
+- Gesichtete Erklärvideos (Link, Inhalt, was wir übernehmen): `quellen/videos.md`. Neue Videos dort ergänzen; nur Zusammenfassungen in eigenen Worten, keine Transkripte.
 - Zielperson: Trader, Statistiker, Finanzmathematiker, aber Laie in Physik und Hardware. Jede Mission braucht vorab: Was du siehst, was du tun sollst, worauf es ankommt. Fachbegriffe beim ersten Auftreten in Alltagssprache erklären.
