@@ -60,3 +60,27 @@ Sammlung der Videos, die wir für die Lern-App „Sandkorn-Rechner“ gesichtet 
 - „0 und 1 stehen für Strom aus und Strom an“: Genauer ist Spannung an oder aus. Eine 1 am Gate oder in einer Speicherzelle ist Druck ohne Fluss (Level 0, Mission 3).
 - Die Unicode-Tabelle vergibt nur die Zahl; wie viele Bits gespeichert werden, legt die Kodierung fest. Im üblichen UTF-8 brauchen A bis Z je 8 Bit, ä braucht 16, ein Emoji 32.
 - Zahlenangaben (eigene Einschätzung): A4-Seite ≈ 20 000 Bit passt zu rund 2 500 Zeichen × 8. Handyfoto ≈ 20 Millionen Bit passt zu einem komprimierten JPEG von rund 2,5 MB; unkomprimiert wären es bei 12 Megapixeln × 24 Bit rund 290 Millionen. 5 Milliarden Bit für 5 Minuten Video entspricht etwa 17 Mbit/s, eher 4K als Full HD. „30 Milliarden Transistoren“ liegt am oberen Rand heutiger Laptop-Chips.
+
+---
+
+## 4. Milliarden Schalter, kein Gehirn: So rechnet ein Mikrochip!
+
+- **Link:** https://youtu.be/_ub2FFMt8zU
+- **Kanal:** Erzähluniversum · **Länge:** 5:49 · **Sprache:** Deutsch · **Hochgeladen:** 20.09.2026
+- **Zielgruppe:** Einsteiger; Fortsetzung von Video 3.
+
+**Inhalt:**
+- 0:38 CPU (Central Processing Unit): rechnen, vergleichen, Daten verschieben, Befehle Schritt für Schritt abarbeiten. Der Transistor als Lichtschalter, der nicht von Hand, sondern durch eine Spannung geschaltet wird; „vollkommen dumm“, er reagiert nur auf Spannung. Zwei Spannungszustände = 0 und 1 = ein Bit.
+- 2:15 Drei Grundgatter mit Wahrheitstabelle: NICHT kehrt um, UND gibt nur bei lauter Einsen 1, ODER schon bei einer einzigen 1. Transistorzahl: NICHT 2, UND und ODER mit zwei Eingängen je 6.
+- 3:21 Der Halbaddierer aus zwei UND, einem ODER und einem NICHT (zusammen 20 Transistoren): 1 + 1 ergibt Übertrag 1 und Stelle 0, also binär 10 = 2.
+- 3:55 Weitere Bausteine: Volladdierer in Reihe, Vergleicher, Multiplexer (wählen zwischen Datenwegen), Register. Bild: Der Prozessor ist ein riesiges Schienennetz mit festen Strecken; Programmbefehle und frühere Ergebnisse stellen die Weichen. Takt als Herzschlag, Apple M5 bis 4,61 GHz; mehrere Rechnungen laufen parallel.
+
+**Was wir haben:** Transistor als spannungsgesteuerter Schalter (Level 0, 1), Bits (Level 1, 4), Gatter mit Wahrheitstabelle und Transistorzahlen (Level 2), Volladdierer in Reihe (Level 6), Vergleich über das Z-Bit (Level 6, 8), Multiplexer als PC-Weiche (Level 8), Register (Level 4), Takt (Level 7).
+
+**Was wir übernehmen können:**
+- Die Brücke Gatter → Addierer: Der Halbaddierer aus Grundgattern fehlt in der App. Level 6 springt mit Formeln (⊕, ∨) direkt zum Volladdierer, ohne dass ⊕ (XOR, „entweder–oder“) je aufgebaut wurde.
+- Das Bild „Schienennetz mit Weichen“ für Level 7 und 8: Die Strecken liegen fest, die Bits des Befehls und das Z-Bit stellen die Weichen.
+
+**Wo das Video vereinfacht:**
+- Der Halbaddierer aus 2 UND, 1 ODER, 1 NICHT ist eine von mehreren Bauweisen; mit einem eigenen XOR-Gatter sind es zwei Gatter, in optimiertem CMOS deutlich weniger als 20 Transistoren.
+- Die 4,61 GHz des Apple M5 sind Messwerte unabhängiger Tester; Apple selbst nennt keine Taktfrequenz.
