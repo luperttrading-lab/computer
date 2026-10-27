@@ -1,0 +1,486 @@
+<title>Sandkorn-Rechner</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: Werkstatt. Oben das Maschinen-Schema als Fortschritt, darunter acht Level mit je einer Arbeitsfläche und einer Missionskarte.
+   Farbe trägt Bedeutung: Blau = Daten, Orange = Steuerung, Tinte = Bits im Speicher, Rot = Fehler/Verlust. */
+:root {
+  --bg: #EEF1F4; --surface: #FFFFFF; --ink: #141C26; --muted: #566273; --line: #D3D9E0;
+  --hi: #1D55CF; --hi-soft: #DDE6F8; --on-hi: #FFFFFF;
+  --ctl: #A95F00; --ctl-soft: #F6E4C6; --on-ctl: #FFFFFF;
+  --lo: #C3CBD5; --lo-ink: #8592A2;
+  --bad: #B3261E; --bad-soft: #F8DEDC;
+  --ok: #1E7A45; --ok-soft: #DCF1E4;
+  --gap: #D9A400;
+  --f-display: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F141A; --surface: #161D25; --ink: #E4E9EF; --muted: #93A0AF; --line: #2A3440;
+    --hi: #79A0FF; --hi-soft: #1C2B4A; --on-hi: #0C1424;
+    --ctl: #F0A848; --ctl-soft: #3A2B12; --on-ctl: #1E1405;
+    --lo: #3A4552; --lo-ink: #6F7C8C; --bad: #F06A72; --bad-soft: #3F1C1E;
+    --ok: #5CC88A; --ok-soft: #173224; --gap: #E6C04A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F141A; --surface: #161D25; --ink: #E4E9EF; --muted: #93A0AF; --line: #2A3440;
+  --hi: #79A0FF; --hi-soft: #1C2B4A; --on-hi: #0C1424;
+  --ctl: #F0A848; --ctl-soft: #3A2B12; --on-ctl: #1E1405;
+  --lo: #3A4552; --lo-ink: #6F7C8C; --bad: #F06A72; --bad-soft: #3F1C1E;
+  --ok: #5CC88A; --ok-soft: #173224; --gap: #E6C04A;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+a { color: var(--hi); }
+:focus-visible { outline: 2px solid var(--hi); outline-offset: 2px; }
+button { font: inherit; color: inherit; }
+code { font-family: var(--f-mono); font-size: .92em; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 80px; display: flex; flex-direction: column; gap: 56px; }
+
+/* Kopf und Maschinen-Schema */
+.top { display: flex; flex-direction: column; gap: 14px; }
+.eyebrow { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h1 { font-family: var(--f-display); font-weight: 700; font-size: clamp(2.4rem, 7vw, 3.8rem); line-height: .98; letter-spacing: -.01em; margin: 0; text-wrap: balance; }
+.lead { font-size: 1.08rem; max-width: 64ch; margin: 0; }
+.trace { width: 100%; max-width: 480px; height: auto; display: block; }
+.trace path { fill: none; stroke: var(--hi); stroke-width: 2; }
+.trace line { stroke: var(--line); }
+.trace text { fill: var(--muted); font-family: var(--f-mono); font-size: 11px; }
+.schema { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.schema-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; align-items: baseline; }
+.schema-head .eyebrow { color: var(--ink); }
+.slots { display: grid; grid-template-columns: repeat(11, minmax(0, 1fr)); gap: 6px; }
+@media (max-width: 860px) { .slots { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; } .slot { padding: 7px 1px 5px; } .slot svg { width: 28px; height: 28px; } .slot .sl { font-size: 8.5px; letter-spacing: 0; } }
+table.tt td.good { color: var(--ok); font-weight: 600; }
+table.tt td.bad { color: var(--bad); font-weight: 600; }
+.formula.wrap { white-space: normal; }
+.gate-block { fill: var(--ink); }
+.slot { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px 8px; border: 1px dashed var(--lo); border-radius: 10px; background: transparent; cursor: pointer; color: var(--lo-ink); min-width: 0; }
+.slot svg { width: 40px; height: 40px; display: block; }
+.slot .sl { font-family: var(--f-mono); font-size: 10.5px; line-height: 1.2; text-align: center; letter-spacing: .02em; }
+.slot .sn { font-family: var(--f-display); font-weight: 700; font-size: 14px; }
+.slot.done { border-style: solid; border-color: var(--hi); color: var(--ink); background: var(--hi-soft); }
+.slot.cur { border-style: solid; border-color: var(--ctl); color: var(--ink); }
+.slot:hover { border-color: var(--muted); }
+.slot svg .p { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.slot svg .f { fill: currentColor; stroke: none; }
+.slot.done svg .p { stroke: var(--hi); }
+.slot.done svg .f { fill: var(--hi); }
+@media (prefers-reduced-motion: no-preference) {
+  .slot.cur { animation: pulse 2.4s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 4px var(--ctl-soft); } }
+}
+.progress-line { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font-size: .9rem; color: var(--muted); }
+.bar { flex: 1 1 160px; height: 6px; background: var(--lo); border-radius: 3px; overflow: hidden; min-width: 120px; }
+.bar i { display: block; height: 100%; width: 0; background: var(--hi); border-radius: 3px; }
+.linkbtn { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; padding: 0; font-size: .85rem; }
+.linkbtn:hover { color: var(--ink); }
+
+/* Level */
+.level { display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 12px; }
+.lvl-head { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; }
+.lvl-no { font-family: var(--f-display); font-weight: 700; font-size: 3.2rem; line-height: .8; color: var(--hi); font-variant-numeric: tabular-nums; }
+h2 { font-family: var(--f-display); font-weight: 600; font-size: clamp(1.6rem, 4.2vw, 2.2rem); line-height: 1.05; margin: 0; text-wrap: balance; }
+.lvl-part { font-size: .9rem; color: var(--muted); margin: 0; flex-basis: 100%; }
+.sub { margin: 0; max-width: 70ch; }
+.orient, .qmap { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 14px; margin: 0; font-size: .95rem; }
+.orient { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--hi); border-radius: 10px; padding: 12px 14px; }
+.orient dt, .qmap dt { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--hi); padding-top: 4px; white-space: nowrap; }
+.qmap dt { font-family: var(--f-body); font-size: .95rem; letter-spacing: 0; text-transform: none; color: var(--ink); font-weight: 600; white-space: normal; padding-top: 0; max-width: 22ch; }
+.orient dd, .qmap dd { margin: 0; max-width: 72ch; }
+/* Weg der Bits */
+.flow { list-style: none; counter-reset: fl; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.flow li { counter-increment: fl; display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto; gap: 4px 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.flow li:last-child { border-bottom: 0; }
+.flow li::before { content: counter(fl); font-family: var(--f-display); font-weight: 700; font-size: 1.3rem; color: var(--hi); }
+.flow li a { font-family: var(--f-mono); font-size: 12px; white-space: nowrap; }
+/* Arbeitsspeicher und Festspeicher */
+.memgrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .85fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 900px) { .memgrid { grid-template-columns: minmax(0, 1fr); } }
+.membox { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; background: var(--surface); }
+.membox.bus { background: var(--bg); }
+.memtitle { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: 1.1rem; }
+.membox .caption { margin-top: -6px; }
+.mrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 5px 6px; border-radius: 8px; border: 1px solid transparent; }
+.mrow.sel { border-color: var(--ctl); background: var(--ctl-soft); }
+.mrow.off .bit { opacity: .5; }
+.maddr { font-family: var(--f-mono); font-size: 12px; color: var(--muted); min-width: 9ch; }
+.maddr b { color: var(--ink); font-weight: 600; }
+.mval { font-family: var(--f-mono); font-size: .88rem; font-variant-numeric: tabular-nums; }
+.wear { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.bit.rand { border-style: dashed; border-color: var(--bad); }
+.bit.rand.on { background: var(--bad-soft); color: var(--bad); border-color: var(--bad); }
+.fcell { display: block; }
+.fcell .glass { fill: var(--hi-soft); stroke: var(--muted); stroke-width: 1; }
+.fcell .island { fill: var(--surface); stroke: var(--ink); stroke-width: 1.2; }
+.fcell .el { fill: var(--hi); opacity: 0; }
+.fcell .el.on { opacity: 1; }
+.fcell .fdig { fill: var(--ink); font-family: var(--f-mono); font-size: 11px; font-weight: 600; }
+@media (max-width: 600px) { .orient, .qmap { grid-template-columns: minmax(0, 1fr); gap: 2px 0; } .orient dd, .qmap dd { margin-bottom: 8px; } .qmap dt { max-width: none; } }
+h3 { font-family: var(--f-display); font-weight: 600; font-size: 1.3rem; line-height: 1.15; margin: 0; text-wrap: balance; }
+.caption { font-size: .85rem; color: var(--muted); margin: 0; max-width: 78ch; }
+.note { margin: 0; font-size: .95rem; }
+.seq { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); margin: 0; overflow-wrap: anywhere; }
+
+/* Arbeitsflächen */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+@media (max-width: 560px) { .panel { padding: 14px 12px; } }
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+@media (max-width: 760px) { .split { grid-template-columns: minmax(0, 1fr); } }
+.col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+svg.fig { width: 100%; height: auto; display: block; }
+.ctrl { display: flex; flex-direction: column; gap: 4px; }
+.ctrl label { display: flex; justify-content: space-between; gap: 12px; font-size: .9rem; color: var(--muted); }
+.ctrl output { font-family: var(--f-mono); color: var(--ink); font-variant-numeric: tabular-nums; }
+input[type="range"] { width: 100%; accent-color: var(--hi); }
+input[type="number"] { font: inherit; font-family: var(--f-mono); width: 5.5ch; padding: .35em .4em; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+select { font: inherit; font-family: var(--f-mono); font-size: 12px; padding: .2em .3em; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); max-width: 100%; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btn { font-size: .9rem; font-weight: 500; padding: .5em .9em; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--muted); }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary { background: var(--hi); border-color: var(--hi); color: var(--on-hi); }
+.btn.big { font-size: 1.05rem; padding: .7em 1.3em; }
+.btn[aria-pressed="true"] { background: var(--hi-soft); border-color: var(--hi); }
+.btn.wrong { border-color: var(--bad); background: var(--bad-soft); }
+.btn.right { border-color: var(--ok); background: var(--ok-soft); }
+.switch { display: inline-flex; align-items: center; gap: 8px; font-size: .9rem; cursor: pointer; }
+.switch input { accent-color: var(--ctl); width: 18px; height: 18px; }
+.chip { display: inline-flex; align-items: center; font-family: var(--f-mono); font-size: 13px; padding: .25em .7em; border-radius: 999px; background: var(--hi-soft); color: var(--ink); white-space: nowrap; }
+.chip.bad { background: var(--bad-soft); color: var(--bad); }
+.chip.ok { background: var(--ok-soft); color: var(--ok); }
+.chip.ctl { background: var(--ctl-soft); }
+.chip.dim { background: var(--bg); color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .stats { grid-template-columns: minmax(0, 1fr); } }
+.stat { display: flex; flex-direction: column; gap: 2px; border-top: 1px solid var(--line); padding-top: 8px; }
+.stat .k { font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.stat .v { font-family: var(--f-mono); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.formula { font-family: var(--f-mono); font-size: .9rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: .5em .8em; overflow-x: auto; white-space: nowrap; }
+.kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; font-size: .9rem; margin: 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.divider { border: 0; border-top: 1px solid var(--line); margin: 0; }
+details { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+details > summary { cursor: pointer; padding: 10px 14px; font-weight: 500; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::after { content: "+"; font-family: var(--f-mono); color: var(--muted); }
+details[open] > summary::after { content: "−"; }
+details > .body { padding: 0 14px 14px; display: flex; flex-direction: column; gap: 14px; }
+
+/* Bits und Lampen */
+.bit { font-family: var(--f-mono); font-size: 15px; font-weight: 600; width: 30px; height: 36px; border-radius: 5px; border: 1px solid var(--line); background: var(--surface); color: var(--lo-ink); padding: 0; display: inline-grid; place-items: center; }
+button.bit { cursor: pointer; }
+button.bit:hover:not(:disabled) { border-color: var(--muted); }
+button.bit:disabled { cursor: default; }
+.bit.on { background: var(--hi); border-color: var(--hi); color: var(--on-hi); }
+.bit.mem.on { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.bit.ctl { border-color: var(--ctl); }
+.bit.ctl.on { background: var(--ctl); border-color: var(--ctl); color: var(--on-ctl); }
+.bit.dc { color: var(--lo); border-style: dashed; }
+.bit.dc.on { background: var(--lo); border-color: var(--lo); color: var(--bg); }
+.bit.lg { width: 44px; height: 52px; font-size: 20px; }
+.bit.sm { width: 26px; height: 32px; font-size: 13px; }
+.field { display: flex; gap: 3px; }
+.byte { display: flex; gap: 8px; flex-wrap: nowrap; }
+.lamps { display: flex; flex-wrap: wrap; gap: 4px 12px; font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.lamp { display: inline-flex; align-items: center; gap: 5px; }
+.lamp::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--lo); flex: none; }
+.lamp.on { color: var(--ink); }
+.lamp.on::before { background: var(--ctl); box-shadow: 0 0 0 3px var(--ctl-soft); }
+.lamp.hi.on::before { background: var(--hi); box-shadow: 0 0 0 3px var(--hi-soft); }
+.lamp[title] { cursor: help; text-decoration: underline dotted var(--lo); text-underline-offset: 3px; }
+
+/* Missionskarte */
+.mission { border: 1px solid var(--ctl); border-radius: 12px; background: var(--surface); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.mission .m-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; align-items: baseline; }
+.mission .m-label { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--ctl); font-weight: 600; margin: 0; }
+.mission .m-text { margin: 0; font-size: 1.05rem; font-weight: 500; max-width: 72ch; }
+.mission .m-status { margin: 0; font-size: .95rem; min-height: 1.4em; }
+.mission .m-status.ok { color: var(--ok); font-weight: 500; }
+.mission .m-status.bad { color: var(--bad); }
+.mission .m-counters { display: flex; flex-wrap: wrap; gap: 6px; }
+.mission .m-hint { margin: 0; font-size: .95rem; background: var(--bg); border-radius: 8px; padding: 10px 12px; }
+.mission.all-done { border-color: var(--ok); }
+.m-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pred { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .9rem; }
+.pred .frozen { font-family: var(--f-mono); color: var(--ctl); }
+
+/* Erkenntniskarte */
+.card { border-radius: 12px; border: 1px solid var(--hi); background: var(--hi-soft); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.card .c-label { font-family: var(--f-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--hi); font-weight: 600; margin: 0; }
+.card p { margin: 0; max-width: 76ch; }
+.card .c-hw { font-size: .92rem; color: var(--muted); }
+.card .c-hw b { color: var(--ink); font-weight: 600; }
+.card .c-nums { font-family: var(--f-mono); font-size: .9rem; background: var(--surface); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+
+/* Tabellen */
+.tbl-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+table.tt { width: auto; min-width: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+table.tt td, table.tt th { text-align: center; padding: 6px 12px; }
+table.tt td.q { color: var(--lo-ink); }
+table.tt td.one { color: var(--ctl); font-weight: 600; }
+table.tt tr.cur td { background: var(--ctl-soft); }
+table.mem { min-width: 640px; }
+.tt-scroll { max-height: 230px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+
+/* SVG-Bausteine */
+.plotbg { fill: var(--bg); }
+.grid { stroke: var(--line); stroke-width: 1; }
+.axis { stroke: var(--muted); stroke-width: 1; }
+.diag { fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.curve { fill: none; stroke: var(--ink); stroke-width: 2; }
+.cob { fill: none; stroke: var(--hi); stroke-width: 1.6; }
+.start { fill: var(--hi); }
+.fp-stable { fill: var(--hi); stroke: var(--surface); stroke-width: 2; }
+.fp-unstable { fill: var(--surface); stroke: var(--bad); stroke-width: 2.2; }
+text.t { fill: var(--muted); font-family: var(--f-mono); font-size: 12px; }
+text.lab { fill: var(--ink); font-family: var(--f-mono); font-size: 15px; font-weight: 600; }
+text.val { fill: var(--ink); font-family: var(--f-mono); font-size: 13px; }
+text.cv { fill: var(--muted); font-family: var(--f-mono); font-size: 11px; }
+text.ctlt { fill: var(--ctl); font-family: var(--f-mono); font-size: 11px; }
+text.badt { fill: var(--bad); font-family: var(--f-mono); font-size: 12px; }
+.gate path, .gate circle, .gate rect { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+.thr { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 4; }
+.dcurve { fill: none; stroke: var(--hi); stroke-width: 2.2; stroke-linejoin: round; }
+.rline { stroke: var(--ctl); stroke-width: 1.2; stroke-dasharray: 2 3; }
+.lost { fill: var(--bad); }
+.dens { fill: var(--hi-soft); stroke: var(--hi); stroke-width: 1.4; }
+.tail { fill: var(--bad); opacity: .5; }
+.wire { stroke: var(--lo); stroke-width: 3; fill: none; }
+.wire.on { stroke: var(--hi); }
+.wire.ctl.on { stroke: var(--ctl); }
+.wire.thin { stroke-width: 1.6; }
+.wire.cut { stroke: var(--bad); stroke-dasharray: 5 4; }
+.wire.suspect { stroke: var(--bad); stroke-width: 4; }
+.wire.pick { cursor: pointer; }
+.hit { stroke: transparent; stroke-width: 30; fill: none; pointer-events: stroke; cursor: pointer; }
+.hit:focus-visible { stroke: var(--hi-soft); outline: none; }
+.mos .ch { stroke: var(--ink); stroke-width: 2; fill: none; }
+.mos .g { stroke: var(--ink); stroke-width: 2; fill: none; }
+.mos .b { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+.mos.on .ch { stroke: var(--hi); stroke-width: 5; }
+.mos.on .b { fill: var(--hi-soft); }
+.mos .bub { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; }
+.cell rect { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.cell text { fill: var(--lo-ink); font-family: var(--f-mono); font-size: 18px; font-weight: 600; }
+.cell.on rect { fill: var(--hi); stroke: var(--hi); }
+.cell.on text { fill: var(--on-hi); }
+.cell.ctl rect { stroke: var(--ctl); }
+.cell.ctl.on rect { fill: var(--ctl); stroke: var(--ctl); }
+.cell.ctl.on text { fill: var(--on-ctl); }
+.cell.calc rect { stroke-dasharray: 3 3; }
+.cell.hid text { fill: var(--lo-ink); }
+.cell.click { cursor: pointer; }
+.cell:focus { outline: none; }
+.cell:focus-visible rect { stroke: var(--ink); stroke-width: 2.5; }
+.fa rect { fill: var(--bg); stroke: var(--ink); stroke-width: 1.4; }
+.fa text { fill: var(--ink); font-family: var(--f-mono); font-size: 13px; }
+.fa text.s { fill: var(--muted); font-size: 11px; }
+.lampc { fill: var(--lo); stroke: var(--lo-ink); stroke-width: 1.5; }
+.lampc.on { fill: var(--ctl); stroke: var(--ctl); }
+.lampc.hi.on { fill: var(--hi); stroke: var(--hi); }
+.sw rect { fill: var(--surface); stroke: var(--ink); stroke-width: 1.5; cursor: pointer; }
+.sw text { fill: var(--ink); font-family: var(--f-mono); font-size: 13px; font-weight: 600; pointer-events: none; }
+.sw.on rect { fill: var(--ctl); stroke: var(--ctl); }
+.sw.on text { fill: var(--on-ctl); }
+.sw.data.on rect { fill: var(--hi); stroke: var(--hi); }
+.sw.data.on text { fill: var(--on-hi); }
+.box { fill: var(--bg); stroke: var(--ink); stroke-width: 1.4; }
+.box.q { fill: var(--lo); stroke: var(--lo-ink); }
+
+/* Prozessor-Panel */
+.cpu { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 22px; }
+@media (max-width: 860px) { .cpu { grid-template-columns: minmax(0, 1fr); } }
+.blk { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.blk-t { font-family: var(--f-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.memrows { display: flex; flex-direction: column; gap: 2px; }
+.memrow { display: grid; grid-template-columns: 2.6ch minmax(0, 1fr); gap: 2px 10px; align-items: center; padding: 5px 8px; border-radius: 8px; border: 1px solid transparent; }
+.memrow .addr { font-family: var(--f-mono); color: var(--muted); font-variant-numeric: tabular-nums; grid-row: span 2; align-self: start; padding-top: 6px; }
+.memrow .dis { font-family: var(--f-mono); font-size: .85rem; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; min-height: 1.4em; color: var(--muted); }
+.memrow .dis b { color: var(--ink); font-weight: 600; }
+.memrow.is-pc { border-color: var(--ctl); background: var(--ctl-soft); }
+.memrow.gap { border-color: var(--gap); border-style: dashed; }
+.memrow.locked .byte { opacity: .75; }
+.memrow .lock { font-family: var(--f-mono); font-size: 11px; color: var(--muted); }
+.memrow .byte { gap: 6px; }
+.memrow .field { gap: 2px; }
+.flbls { display: grid; grid-template-columns: 2.6ch minmax(0, 1fr); gap: 10px; padding: 0 8px; }
+.flbls .byte span { font-family: var(--f-mono); font-size: 10.5px; color: var(--muted); text-align: center; }
+.regrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 3px 0; }
+.rname { font-family: var(--f-mono); font-weight: 600; width: 2.4ch; }
+.rval { font-family: var(--f-mono); font-size: .9rem; min-width: 10ch; font-variant-numeric: tabular-nums; }
+.phases { display: flex; flex-wrap: wrap; gap: 6px; }
+.phase { font-family: var(--f-mono); font-size: 12px; padding: .3em .65em; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.phase.next { border-color: var(--ctl); color: var(--ink); background: var(--ctl-soft); }
+.msg { margin: 0; font-size: .93rem; min-height: 3.2em; }
+.msg.bad { color: var(--bad); }
+.display { font-family: var(--f-mono); font-size: 1.6rem; font-weight: 600; background: var(--ink); color: var(--bg); border-radius: 8px; padding: .25em .6em; min-width: 5ch; text-align: right; font-variant-numeric: tabular-nums; display: inline-block; }
+.display small { font-size: .55em; font-weight: 400; opacity: .7; margin-left: .6em; }
+.counters { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* RISC-V */
+.rv-wrap { overflow-x: auto; padding-bottom: 4px; }
+.rv { display: flex; gap: 10px; min-width: 620px; }
+.rv-field { display: flex; flex-direction: column; gap: 4px; }
+.rv-bits { display: flex; gap: 2px; }
+.rv-bit { font-family: var(--f-mono); font-size: 12px; width: 15px; height: 24px; display: grid; place-items: center; border-radius: 3px; background: var(--bg); color: var(--lo-ink); }
+.rv-bit.on { background: var(--ink); color: var(--bg); }
+.rv-bit.key { box-shadow: 0 0 0 2px var(--ctl); }
+.rv-bit.key.on { background: var(--ctl); color: var(--on-ctl); }
+.rv-name { font-family: var(--f-mono); font-size: 11px; color: var(--ink); }
+.rv-note { font-size: 11px; color: var(--muted); }
+.rv-out { display: flex; flex-wrap: wrap; gap: 8px 24px; font-family: var(--f-mono); font-size: 1rem; }
+.rv-out span b { color: var(--muted); font-weight: 400; margin-right: .5em; font-size: .85em; }
+
+/* DRAM-Spiel */
+.dram-bar { height: 10px; background: var(--lo); border-radius: 5px; overflow: hidden; }
+.dram-bar i { display: block; height: 100%; width: 0; background: var(--ok); }
+.refresh { width: 120px; height: 120px; border-radius: 50%; border: 3px solid var(--hi); background: var(--surface); color: var(--hi); font-weight: 600; font-size: 1rem; cursor: pointer; align-self: center; }
+.refresh:active { background: var(--hi-soft); }
+.refresh:disabled { opacity: .4; }
+
+/* Abschluss */
+.cols2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; }
+@media (max-width: 760px) { .cols2 { grid-template-columns: minmax(0, 1fr); } }
+.list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+.list li { display: flex; flex-direction: column; gap: 2px; }
+.list b { font-weight: 600; }
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+.gallery .card { font-size: .92rem; }
+.foot { font-size: .85rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; margin: 0; }
+.store-note { font-size: .85rem; color: var(--bad); margin: 0; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: no-preference) {
+  .lamp::before, .bit, .phase, .memrow, .slot { transition: background-color .15s ease, border-color .15s ease, box-shadow .15s ease; }
+}
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <p class="eyebrow">Lern-App zum YouTube-Short „How a computer works“</p>
+  <h1>Sandkorn-Rechner</h1>
+  <svg class="trace" id="trace" viewBox="0 0 480 56" role="img" aria-label="Das Wort BIT als Spannungsverlauf"></svg>
+  <p class="caption">Die Linie oben ist das Wort BIT, so wie es als Spannung über eine Leitung im Computer läuft: hoch heißt 1, tief heißt 0, acht Stellen je Buchstabe. B ist 01000010.</p>
+  <p class="lead">Du baust aus einem Sandkorn einen Rechner (also einen Computer), Bauteil für Bauteil. Vorwissen in Physik brauchst du nicht: Vor jeder Mission steht, was du siehst, was du tun sollst und worauf es ankommt. Am Ende rechnet deine Maschine 3 × 4 allein, mit einer Schleife und einem bedingten Sprung.</p>
+  <div class="panel">
+    <p class="eyebrow">Warum ein Sandkorn?</p>
+    <p class="note">Das Herz jedes Computers ist ein Chip aus <b>Silizium</b>, und Silizium gewinnt man aus Sand. So wird aus Sand ein Chip:</p>
+    <ol class="flow">
+      <li><span><b>Sand.</b> Gewöhnlicher Sand besteht größtenteils aus Quarz, chemisch Siliziumdioxid: Silizium und Sauerstoff. Silizium ist nach Sauerstoff das häufigste Element der Erdkruste. Für Chips nimmt man besonders reinen Quarzsand oder Quarzgestein, keinen Strandsand.</span></li>
+      <li><span><b>Silizium gewinnen.</b> In einem Ofen trennt man bei rund 2000 °C den Sauerstoff mit Kohlenstoff ab. Heraus kommt Silizium mit etwa 99 % Reinheit. Danach wird es chemisch gereinigt, bis auf eine Milliarde Siliziumatome höchstens ein fremdes kommt.</span></li>
+      <li><span><b>Ein einziger Kristall.</b> Das reine Silizium wird geschmolzen (bei gut 1400 °C), und man zieht daraus langsam eine Säule, in der alle Atome in einem perfekten Gitter sitzen, etwa 30 cm dick.</span></li>
+      <li><span><b>Scheiben.</b> Die Säule wird in Scheiben gesägt, knapp einen Millimeter dick. Sie heißen Wafer.</span></li>
+      <li><span><b>Mit Licht beschreiben.</b> Licht projiziert winzige Muster auf die Scheibe, Schicht für Schicht. Dazwischen bringt man gezielt einzelne fremde Atome ein und ätzt Material weg. So entstehen auf jedem Chip Milliarden Transistoren: die Schalter aus Level 1.</span></li>
+    </ol>
+    <p class="note"><b>Warum gerade Silizium?</b> Es ist ein Halbleiter: Von sich aus leitet es kaum, aber mit winzigen Mengen anderer Atome lässt sich genau festlegen, wo es leitet und wann. Das ist die Grundlage des Schalters. Und sein Oxid, also wieder Siliziumdioxid, ist Glas und ein hervorragender Isolator. Dasselbe Material wie im Sand sitzt im fertigen Chip als Isolierschicht, zum Beispiel um die Insel im Festspeicher (Level 5).</p>
+    <p class="caption">Silizium, nicht Silikon: Silikon ist ein gummiartiger Kunststoff, etwa Fugenmasse im Bad. Er wird aus Silizium hergestellt, ist aber ein anderer Stoff. Das englische „silicon“ heißt auf Deutsch Silizium; daher der Name Silicon Valley.</p>
+  </div>
+  <div class="panel">
+    <p class="eyebrow">Deine Fragen, und wo die App sie beantwortet</p>
+    <dl class="qmap">
+      <dt>Was ist Spannung, Strom, Widerstand?</dt><dd><a href="#level0">Level 0</a>: Druck, Fluss und Bremse, und warum ein Transistor eine Bremse ist, die man mit Spannung verstellt.</dd>
+      <dt>Wie geht das alles mit Nullen und Einsen?</dt><dd><a href="#level1">Level 1</a>: Eine 1 ist Spannung an einem Schalter, eine 0 keine. <a href="#level2">Level 2</a>: Aus Schaltern werden Gatter, aus Gattern alles Weitere.</dd>
+      <dt>Wo wird etwas gespeichert?</dt><dd><a href="#level3">Level 3</a>: eine einzelne Speicherzelle. <a href="#level4">Level 4</a>: ein Register aus vier Zellen hält eine Zahl. <a href="#level5">Level 5</a>: Arbeitsspeicher und Festspeicher, und was beim Ausschalten übrig bleibt.</dd>
+      <dt>Wie wird es verarbeitet?</dt><dd><a href="#level6">Level 6</a>: aus Gattern wird Rechnen (zwei Bits addieren). <a href="#level7">Level 7</a>: das Rechenwerk addiert ganze Zahlen. <a href="#level8">Level 8</a>: das Steuerwerk liest Befehle und schaltet Leitungen. <a href="#level9">Level 9</a>: die Maschine trifft Entscheidungen.</dd>
+      <dt>Wo kommt es raus?</dt><dd><a href="#level10">Level 10</a>: die Anzeige. <a href="#level5">Level 5</a>: „Speichern“ schreibt Ergebnisse in den Festspeicher, damit sie das Ausschalten überstehen.</dd>
+    </dl>
+    <p class="eyebrow">Der Weg der Bits durch deine Maschine</p>
+    <ol class="flow">
+      <li><span>Der <b>Festspeicher</b> (im Computer die SSD) hält Programm und Daten als eingesperrte Elektronen, auch ohne Strom.</span><a href="#level5">Level 5</a></li>
+      <li><span>Beim Einschalten kopiert ein kleines Startprogramm sie in den <b>Arbeitsspeicher</b>. Der ist schnell, vergisst aber alles ohne Strom.</span><a href="#level5">Level 5</a></li>
+      <li><span>Das <b>Steuerwerk</b> holt einen Befehl nach dem anderen aus dem Arbeitsspeicher. Die Bits des Befehls schalten Leitungen.</span><a href="#level8">Level 8</a></li>
+      <li><span>Das <b>Rechenwerk</b> rechnet mit den Zahlen in den Registern; ein Bit merkt sich, ob das Ergebnis 0 war, und davon hängt ab, wie es weitergeht.</span><a href="#level6">Level 6, 7, 9</a></li>
+      <li><span>Ergebnisse gehen zurück in den Arbeitsspeicher oder auf die <b>Anzeige</b>.</span><a href="#level10">Level 10</a></li>
+      <li><span>„<b>Speichern</b>“ schreibt sie in den Festspeicher. Sonst sind sie beim Ausschalten weg.</span><a href="#level5">Level 5</a></li>
+    </ol>
+    <p class="caption">Alles darunter besteht aus denselben zwei Bausteinen: Schaltern (Level 1) und Gattern aus Schaltern (Level 2).</p>
+    <details>
+      <summary>Begriffe in Alltagssprache</summary>
+      <div class="body">
+        <dl class="qmap">
+          <dt>Spannung</dt><dd>Elektrischer Druck. 0 heißt kein Druck, 1 heißt voller Druck (im Chip etwa 1 Volt). Alle Zahlen an Leitungen in dieser App sind Spannungen zwischen 0 und 1.</dd>
+          <dt>Strom</dt><dd>Fließende Ladung, gemessen in Ampere: wie viel pro Sekunde durchkommt. Fließt nur, wenn Spannung anliegt und ein Weg offen ist (Level 0).</dd>
+          <dt>Widerstand</dt><dd>Wie stark ein Bauteil den Strom bremst, gemessen in Ohm. Strom = Spannung ÷ Widerstand.</dd>
+          <dt>Transistor</dt><dd>Ein Schalter ohne bewegliche Teile. Spannung am Steuer-Anschluss (Gate) öffnet ihn.</dd>
+          <dt>Versorgung, Masse</dt><dd>Die Plus-Seite und die Null-Seite der Stromquelle. Zwischen beiden fließt der Strom.</dd>
+          <dt>Bit, Byte</dt><dd>Ein Bit ist ein Platz für 0 oder 1. Ein Byte sind acht Bits.</dd>
+          <dt>Gatter</dt><dd>Fest verdrahtete Transistoren mit einer Tabelle: Für jede Eingangskombination ein Ausgang (UND, ODER, NAND …).</dd>
+          <dt>Speicherzelle, Register</dt><dd>Eine Schaltung, die ein Bit festhält; mehrere nebeneinander halten eine Zahl.</dd>
+          <dt>Arbeitsspeicher, Festspeicher</dt><dd>Der Arbeitsspeicher (RAM) ist schnell, vergisst aber alles ohne Strom. Der Festspeicher (SSD, Flash) behält alles ohne Strom, ist aber langsam zu beschreiben.</dd>
+          <dt>Adresse</dt><dd>Die Nummer einer Zeile im Speicher, wie eine Hausnummer in einer Straße, selbst in Bits geschrieben. Die Adressbits wählen, welche Zeile gerade gelesen oder beschrieben wird.</dd>
+          <dt>Takt</dt><dd>Der gleichmäßige Schlag, in dem der Prozessor Schritte macht. Hier langsam zum Durchklicken, im echten Chip Milliarden Mal pro Sekunde.</dd>
+          <dt>Befehl, Programm</dt><dd>Ein Befehl ist ein Byte im Speicher, dessen Bits sagen, was der Prozessor als Nächstes tut. Ein Programm ist eine Liste solcher Bytes.</dd>
+          <dt>Z-Flag, Sprung</dt><dd>Z ist ein Bit, das sich merkt, ob das letzte Ergebnis 0 war. Ein Sprung ist ein Befehl, der festlegt, in welcher Speicherzelle es weitergeht; ein bedingter Sprung tut das nur, wenn Z gesetzt ist.</dd>
+        </dl>
+      </div>
+    </details>
+  </div>
+  <div class="schema">
+    <div class="schema-head"><p class="eyebrow">Deine Maschine</p><span class="caption" id="schemaNote">Noch kein Bauteil eingesetzt. Klick auf einen Platz, um zum Level zu springen.</span></div>
+    <div class="slots" id="slots"></div>
+    <div class="progress-line"><span id="progText">0 von 20 Missionen</span><div class="bar"><i id="progBar"></i></div><button class="linkbtn" type="button" id="wipe">Fortschritt löschen</button></div>
+    <p class="store-note" id="storeNote" hidden>Fortschritt wird in diesem Fenster nicht gespeichert (Browser-Speicher nicht verfügbar).</p>
+  </div>
+</header>
+
+<div id="levels"></div>
+
+<section class="level" id="abschluss">
+  <div class="lvl-head"><span class="lvl-no">∎</span><div><p class="eyebrow">Abschluss</p><h2>Die fertige Maschine</h2></div></div>
+  <div class="panel" id="finalPanel">
+    <p class="note" id="finalIntro">Der Abschluss öffnet sich, sobald alle acht Bauteile eingesetzt sind. Du kannst ihn auch jetzt schon lesen.</p>
+    <dl class="kv">
+      <dt>Zustand</dt><dd>33 Flipflops (4 Register × 4 Bit, PC 4, Befehlsregister 8, Z 1, Anzeige 4) + 128 Bit Programmspeicher = 161 gespeicherte Bits</dd>
+      <dt>Takt</dt><dd>84 Takte für 3 × 4; bei 4 GHz wären das 21 ns. Licht kommt in einem Takt 7,5 cm weit.</dd>
+      <dt>Bausteine</dt><dd>Speicher lesen und schreiben · Rechnen · bedingter Sprung. Mehr braucht es im Prinzip nicht (bei unbegrenztem Speicher; 16 Byte sind es nicht).</dd>
+    </dl>
+  </div>
+  <h3>Gesammelte Erkenntnisse</h3>
+  <div class="gallery" id="gallery"><p class="caption">Hier erscheinen die Erkenntniskarten der Level, die du abgeschlossen hast.</p></div>
+  <div class="cols2">
+    <div class="col">
+      <h3>Wo das Video vereinfacht</h3>
+      <ul class="list">
+        <li><b>„Eine Milliarde Schleifen ergeben den Speicher“</b><span>Das gilt für Register und Cache (Level 3, SRAM). Der Arbeitsspeicher hält Ladung, die alle 64 ms nachgeladen wird (DRAM); der Festspeicher hält Elektronen hinter Glas (Level 5).</span></li>
+        <li><b>„Kann es rechnen, kann es alles“</b><span>Level 9, Mission 1: Ohne bedingten Sprung hängt kein Befehl vom Ergebnis des vorigen ab. Erst Speicher, Addierer und das eine Gatter „PC laden“ machen die Maschine im Prinzip universell.</span></li>
+        <li><b>„Zwei Schalter in Reihe ergeben UND“</b><span>Das ist das Relais-Bild. In CMOS ist die Reihe nach Masse der untere Zweig eines NAND (Level 2); UND ist NAND plus Umkehrer, 6 Transistoren.</span></li>
+      </ul>
+    </div>
+    <div class="col">
+      <h3>Was dein Modell weglässt</h3>
+      <ul class="list">
+        <li><b>Laden und Speichern</b><span>Befehle, die Daten zwischen Registern und Speicher bewegen.</span></li>
+        <li><b>Stapel, Unterprogramme, Interrupts</b><span>Rücksprungadressen und Reaktionen auf Ereignisse von außen.</span></li>
+        <li><b>Fließband und Cache</b><span>Mehrere Befehle überlappend; schnelle SRAM-Kopien neben dem Rechenwerk.</span></li>
+        <li><b>Carry- und Überlauf-Flag</b><span>Level 10, Mission 3 zeigt den Preis: 4 × 4 = 0.</span></li>
+      </ul>
+      <h3>Zum Weitermachen</h3>
+      <ul class="list">
+        <li><a href="https://www.nand2tetris.org" target="_blank" rel="noopener">Nand2Tetris</a><span>Kurs, in dem du im Simulator aus NAND-Gattern einen ganzen Rechner baust.</span></li>
+        <li><a href="https://eater.net/8bit" target="_blank" rel="noopener">Ben Eater: 8-Bit-Computer</a><span>Ein Rechner aus einzelnen Logikchips auf Steckbrettern, mit Flags und bedingten Sprüngen.</span></li>
+        <li><a href="https://youtube.com/shorts/B9JNduiRGUM" target="_blank" rel="noopener">Der Short „How a computer works“</a><span>Das Video, auf das sich diese App bezieht (Englisch, 2:21).</span></li>
+        <li><a href="https://youtu.be/tNUI7q4GpbU" target="_blank" rel="noopener">KIT for Kids: Wie funktioniert ein Computer?</a><span>Der Speicher als Straße mit Hausnummern, ein Befehl wird abgeholt und ausgeführt (Deutsch, 4:07).</span></li>
+        <li><a href="https://youtu.be/Sh9VwHj8a3o" target="_blank" rel="noopener">Erzähluniversum: Wie funktioniert eigentlich ein Computer?</a><span>Bits, Unicode und „HALLO = 40 Bit“, Transistor als Ventil, Arbeitsspeicher als Werkbank, Festplatte als Lagerhalle (Deutsch, 6:31).</span></li>
+      </ul>
+    </div>
+  </div>
+  <p class="foot">Die Modelle sind vereinfacht: Kennlinien, Ladungsmengen und Zeitkonstanten sind Anschauung in der richtigen Größenordnung. Die Kodierungen (Binärzahlen, Zweierkomplement, der Befehlssatz, RISC-V) und alle Programmläufe sind exakt und per Simulator geprüft.</p>
+</section>
+
+</div>
+
+<script src="cpu.js"></script>
+<script src="app.js"></script>
